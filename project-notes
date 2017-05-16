@@ -27,5 +27,5 @@ Sites to remember
     https://www.numbeo.com/cost-of-living/in/Denver
 
 
-Ok, looks like I can't use an api for cost of living. So, I'm going to have to use Numbeo's information and hard code it into a table in SQL. New York is 100% on everything. If a city is more expensive then I will multiply that city's cost of living by 1.x. If it is lower than NY then I will multiply by .x. There will be two prices. One will be just cost of living and the other will include cost of living plus rent for a 1 bedroom apartment around the city center.
+Ok, looks like I can't use an api for cost of living. So, I'm going to have to use Numbeo's information and hard code it into a table in SQL. New York is 100% on everything. I will use NY as par. If a city is more expensive then I will multiply that city's cost of living by 1.x. If it is lower than NY then I will multiply by .x. There will be two prices. One will be just cost of living and the other will include cost of living plus rent for a 1 bedroom apartment around the city center.
 For tax information I will receive that from taxee.io.
