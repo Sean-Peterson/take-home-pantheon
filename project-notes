@@ -1,21 +1,18 @@
 What is the inspiration behind Take Home?
   I want to build this site so that users who are applying to jobs in different cities can compare how much they are going to be making after the cost of living and taxes in each city. Example: If A user gets an offer from a company in L.A. for 70k and an offer from a company in Portland for 50k. How much money would the user take home after all living expenses and taxes in either city?
 
+
 What language will I build this in?
   Drupal 7
+
 
 Outside resources?
   numbeo for cost of living and rent information that I will have to hard code in
   taxee.io for taxes information
 
+
 What functionality will the MVP have?
   Ability to select a city and input an income and then receive
-
-
-
-
-
-
 
 
 Gonna have to use different questions and use the info from those questions to give options on the next Q's so that we can adjust for state income tax and fed income tax.
@@ -28,3 +25,7 @@ Sites to remember
     https://www.numbeo.com/property-investment/in/New-York
     https://www.numbeo.com/cost-of-living/in/New-York
     https://www.numbeo.com/cost-of-living/in/Denver
+
+
+Ok, looks like I can't use an api for cost of living. So, I'm going to have to use Numbeo's information and hard code it into a table in SQL. New York is 100% on everything. If a city is more expensive then I will multiply that city's cost of living by 1.x. If it is lower than NY then I will multiply by .x. There will be two prices. One will be just cost of living and the other will include cost of living plus rent for a 1 bedroom apartment around the city center.
+For tax information I will receive that from taxee.io.
