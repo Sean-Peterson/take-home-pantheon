@@ -1,0 +1,21 @@
+What is the inspiration behind Take Home?
+  I want to build this site so that users who are applying to jobs in different cities can compare how much they are going to be making after the cost of living and taxes in each city. Example: If A user gets an offer from a company in L.A. for 70k and an offer from a company in Portland for 50k. How much money would the user take home after all living expenses and taxes in either city?
+
+What language will I build this in?
+  Drupal 7
+
+Outside resources?
+  numbeo for cost of living and rent information that I will have to hard code in
+  taxee.io for taxes information
+
+What functionality will the MVP have?
+  Ability to select a city and input an income and then receive
+
+
+
+
+
+
+
+
+Gonna have to use different questions and use the info from those questions to give options on the next Q's so that we can adjust for state income tax and fed income tax.
