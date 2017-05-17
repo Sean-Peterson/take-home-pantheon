@@ -162,6 +162,9 @@
       '#title' => "What is your annual income?",
       '#type' => 'textfield',
       '#required' => TRUE,
+      '#element_validate' => array(
+        'element_validate_integer_positive'
+      ),
     );
 
     $form['submit'] = array(
