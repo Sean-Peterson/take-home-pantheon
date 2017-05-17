@@ -27,7 +27,7 @@
       'type' => MENU_CALLBACK,
     );
     $items['result'] = array(
-      'title' => 'Your take home',
+      'title' => 'Your take home breakdown',
       'page callback' => 'results',
       'access callback' => TRUE,
       'type' => MENU_CALLBACK,
@@ -37,6 +37,7 @@
   }
 
   function Take_Home_form() {
+    unset($_SESSION['state_tax_rate']);
     $cities=db_query("SELECT * FROM col");
     $options=array();
     $states=array();
@@ -66,6 +67,32 @@
   function Take_Home_form_submit($form, &$form_state){
     $city = $form_state['values']['cities'];
     $_SESSION['city'] = $city;
+    $form_state['redirect'] = 'income';
+  }
+
+  function income_form() {
+    $form['income'] = array(
+      '#title' => "What is your annual income?",
+      '#type' => 'textfield',
+      '#description' => 'no dollar signs or commas',
+      '#required' => TRUE,
+      '#element_validate' => array(
+        'element_validate_integer_positive'
+      ),
+
+    );
+
+    $form['submit'] = array(
+      '#type' => 'submit',
+      '#value' => 'submit',
+    );
+
+    return $form;
+  }
+  function income_form_submit($form, &$form_state){
+    $income = $form_state['values']['income'];
+
+    $_SESSION['income'] = $income;
     $form_state['redirect'] = 'married';
   }
 
@@ -92,6 +119,7 @@
     $city=$_SESSION['cities'][$city_number];
     $key=array_search($city,$_SESSION['unsorted_cities']);
     $state=$_SESSION['unsorted_states'][$key];
+
     $_SESSION['user_city']=$city;
     $authorization = 'Authorization: Bearer eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJBUElfS0VZX01BTkFHRVIiLCJodHRwOi8vdGF4ZWUuaW8vdXNlcl9pZCI6IjU5MTlmMTlmZTkyMWMwMzY2NjZmMTMxZiIsImh0dHA6Ly90YXhlZS5pby9zY29wZXMiOlsiYXBpIl0sImlhdCI6MTQ5NDg3MjQ3OX0.grP0a9fG_4NdaOaRWk5H-lwG9XOfcgic8eUmhTPF7Tc';
     $curl = curl_init();
@@ -100,6 +128,7 @@
       CURLOPT_URL => 'https://taxee.io/api/v2/state/2017/'.$state,
       CURLOPT_USERAGENT => 'SeanCodes'
     ));
+
     curl_setopt($curl, CURLOPT_HTTPHEADER,array('Content-Type: application/json', $authorization));
     $articles = curl_exec($curl);
     curl_close($curl);
@@ -111,72 +140,19 @@
       $relationship='married';
     }
     if (isset($stuff[$relationship]['income_tax_brackets'])) {
-      foreach($stuff[$relationship]['income_tax_brackets']as $value){
-        $brackets[]=$value['bracket'];
+      for($i=0;$i<count($stuff[$relationship]['income_tax_brackets']);$i++){
+        if($_SESSION['income']<$stuff[$relationship]['income_tax_brackets'][$i]['bracket']){
+            $tax_array_number=$i-1;
+            break;
+          }else{
+            $tax_array_number=count($stuff[$relationship]['income_tax_brackets'])-1;
+          }
       }
-      $_SESSION['brackets']=$brackets;
+
+      $state_tax=(float)$stuff[$relationship]['income_tax_brackets'][$tax_array_number]['marginal_rate'];
+
+      $_SESSION['state_tax_rate'] = $state_tax;
     }
-    if (isset($stuff[$relationship]['income_tax_brackets'])) {
-      foreach($stuff[$relationship]['income_tax_brackets']as $value){
-        $rates[]=$value['marginal_rate'];
-      }
-      $_SESSION['rates']=$rates;
-    }
-
-    if(isset($brackets)){
-      $form_state['redirect'] = 'tax_bracket';
-    }else{
-      $form_state['redirect'] = 'income';
-    }
-  }
-
-  function tax_bracket_form() {
-    $form['tax_bracket'] = array(
-      '#title' => "Select your tax bracket",
-      '#type' => 'radios',
-      '#options' => $_SESSION['brackets'],
-      '#required' => TRUE,
-    );
-
-    $form['submit'] = array(
-      '#type' => 'submit',
-      '#value' => 'submit',
-    );
-
-    return $form;
-  }
-  function tax_bracket_form_submit($form, &$form_state){
-    $tax_bracket = $form_state['values']['tax_bracket'];
-
-    $state_tax_rate=$_SESSION['rates'][$tax_bracket];
-    $_SESSION['state_tax_rate'] = $state_tax_rate;
-    $form_state['redirect'] = 'income';
-  }
-
-  function income_form() {
-    echo'<pre>';
-    var_dump($_SESSION['state_tax_rate']);
-    echo'</pre>';
-    $form['income'] = array(
-      '#title' => "What is your annual income?",
-      '#type' => 'textfield',
-      '#required' => TRUE,
-      '#element_validate' => array(
-        'element_validate_integer_positive'
-      ),
-    );
-
-    $form['submit'] = array(
-      '#type' => 'submit',
-      '#value' => 'submit',
-    );
-
-    return $form;
-  }
-  function income_form_submit($form, &$form_state){
-    $income = $form_state['values']['income'];
-
-    $_SESSION['income'] = $income;
     $form_state['redirect'] = 'result';
   }
 
@@ -202,18 +178,15 @@
     $stuff = json_decode($articles, true);
 
     for($i=0;$i<count($stuff[$relationship]['income_tax_brackets']);$i++){
-      if($_SESSION['income']<$stuff[$relationship]['income_tax_brackets'][$i]){
-        if($i===0){
-          $tax_array_number=$i;
-        }elseif($i==(count($stuff[$relationship]['income_tax_brackets'])-1)){
-          $tax_array_number=$i;
-        }else{
+      if($_SESSION['income']<$stuff[$relationship]['income_tax_brackets'][$i]['bracket']){
           $tax_array_number=$i-1;
+          break;
+        }else{
+          $tax_array_number=count($stuff[$relationship]['income_tax_brackets'])-1;
         }
-      }
     }
 
-    $fed_tax=$stuff[$relationship]['income_tax_brackets'][$tax_array_number]['marginal_rate'];
+    $fed_tax=(float)$stuff[$relationship]['income_tax_brackets'][$tax_array_number]['marginal_rate'];
     $city=$_SESSION['user_city'];
     $cost=db_query("SELECT cost FROM col WHERE city = '{$city}'");
     $cost = $cost->fetchAssoc();
@@ -228,85 +201,18 @@
     $NYrent = $NYrent->fetchAssoc();
     $NYrent=(float)$NYrent['rent'];
     $col=$cost*$NYcost+$rent*$NYrent;
-    $take_home=$_SESSION['income']-($_SESSION['income']*($_SESSION['state_tax_rate']*.01))-($_SESSION['income']*($fed_tax*.01))-($col*12);
+    $state_tax=0;
+    if (isset($_SESSION['state_tax_rate'])) {
+      $state_tax=$_SESSION['state_tax_rate'];
+    }
+    $take_home=$_SESSION['income']-($_SESSION['income']*($state_tax*.01))-($_SESSION['income']*($fed_tax*.01))-($col*12);
 
-    echo'<pre>';
-    var_dump($_SESSION['income']);
-    var_dump(($_SESSION['income']*($_SESSION['state_tax_rate']*.01)));
-    var_dump(($_SESSION['income']*($fed_tax*.01)));
-    var_dump($col*12);
-    var_dump((int)$take_home);
-    echo'</pre>';
+    $income=$_SESSION['income'];
+    $state_tax_total=($_SESSION['income']*($state_tax*.01));
+    $fed_tax_total=($_SESSION['income']*($fed_tax*.01));
+    $annual_col=$col*12;
+    $income_after_taxes=$income-$fed_tax_total-$state_tax_total;
 
-    return '<h1>$'.(int)$take_home.'</h1>';
+    $user_city=$_SESSION['user_city'];
+    return '<h1>Total Income: $'.$income.'</h1><hr><h3>Federal Income Tax: $'.$fed_tax_total.'</h3><h3>State Income Tax: $'.$state_tax_total.'</h3><h1>Income after taxes: $'.$income_after_taxes.'</h1><hr><h3>Average cost of living per month in '.$user_city.'(including 1bdrm rent in city): $'.(int)$col.'</h3><h3>Average cost of living per year in '.$user_city.'(including 1bdrm rent in city): $'.(int)$annual_col.'</h3><h3><a href=https://www.numbeo.com/cost-of-living/in/'.$user_city.'>cost of living source</a></h3><hr><h1>Monthly Take Home after taxes and cost of living: $'.(int)($take_home/12).'</h1><h1>Annual Take Home after taxes and cost of living: $'.(int)$take_home.'</h1>';
   }
-
-  // $city_number = $_SESSION['city'];
-  // $city=$_SESSION['cities'][$city_number];
-  // $key=array_search($city,$_SESSION['unsorted_cities']);
-  // $state=$_SESSION['unsorted_states'][$key];
-  //
-  // $authorization = 'Authorization: Bearer eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJBUElfS0VZX01BTkFHRVIiLCJodHRwOi8vdGF4ZWUuaW8vdXNlcl9pZCI6IjU5MTlmMTlmZTkyMWMwMzY2NjZmMTMxZiIsImh0dHA6Ly90YXhlZS5pby9zY29wZXMiOlsiYXBpIl0sImlhdCI6MTQ5NDg3MjQ3OX0.grP0a9fG_4NdaOaRWk5H-lwG9XOfcgic8eUmhTPF7Tc';
-  // $curl = curl_init();
-  // curl_setopt_array($curl, array(
-  //   CURLOPT_RETURNTRANSFER => 1,
-  //   CURLOPT_URL => 'https://taxee.io/api/v2/state/2017/'.$state,
-  //   CURLOPT_USERAGENT => 'SeanCodes'
-  // ));
-  // curl_setopt($curl, CURLOPT_HTTPHEADER,array('Content-Type: application/json', $authorization));
-  // $articles = curl_exec($curl);
-  // curl_close($curl);
-  // $stuff = json_decode($articles, true);
-  // $relationship='';
-  // if($_SESSION['relationship'] == 0){
-  //   $relationship='single';
-  // }else{
-  //   $relationship='married';
-  // }
-  // $brackets=array();
-  // foreach($stuff[$relationship]['income_tax_brackets']as $value){
-  //   $brackets[]=$value['bracket'];
-  // }
-  // $_SESSION['brackets']=$brackets;
-  // $rates=array();
-  // foreach($stuff[$relationship]['income_tax_brackets']as $value){
-  //   $rates[]=$value['marginal_rate'];
-  // }
-  // $_SESSION['rates']=$rates;
-  // echo '<pre>';
-  // var_dump($stuff[$relationship]['income_tax_brackets']);
-  // echo '</pre>';
-  // $options='';
-  // if(isset($brackets) && $brackets != 0){
-  //   $options=$brackets;
-  // }else{
-  //   $options=array(t('N/A'))
-  // }
-
-
-
-  // echo '<pre>';
-  // var_dump($_SESSION['city']);
-  // var_dump($_SESSION['cities']);
-  // var_dump($_SESSION['unsorted_cities']);
-  // var_dump($_SESSION['unsorted_states']);
-  // var_dump($state);
-  // echo '</pre>';
-  // function get_gov(){
-  //   $authorization = 'Authorization: Bearer eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJBUElfS0VZX01BTkFHRVIiLCJodHRwOi8vdGF4ZWUuaW8vdXNlcl9pZCI6IjU5MTlmMTlmZTkyMWMwMzY2NjZmMTMxZiIsImh0dHA6Ly90YXhlZS5pby9zY29wZXMiOlsiYXBpIl0sImlhdCI6MTQ5NDg3MjQ3OX0.grP0a9fG_4NdaOaRWk5H-lwG9XOfcgic8eUmhTPF7Tc';
-  //   $curl = curl_init();
-  //   curl_setopt_array($curl, array(
-  //     CURLOPT_RETURNTRANSFER => 1,
-  //     CURLOPT_URL => 'https://taxee.io/api/v2/state/2017/OR',
-  //     CURLOPT_USERAGENT => 'SeanCodes'
-  //   ));
-  //   curl_setopt($curl, CURLOPT_HTTPHEADER,array('Content-Type: application/json', $authorization));
-  //   $articles = curl_exec($curl);
-  //   curl_close($curl);
-  //   $stuff = json_decode($articles, true);
-  //   echo '<pre>';
-  //   var_dump($stuff);
-  //   echo '</pre>';
-  //
-  //   return $stuff;
-  // }
