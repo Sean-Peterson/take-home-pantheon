@@ -92,7 +92,7 @@
     $city=$_SESSION['cities'][$city_number];
     $key=array_search($city,$_SESSION['unsorted_cities']);
     $state=$_SESSION['unsorted_states'][$key];
-
+    $_SESSION['user_city']=$city;
     $authorization = 'Authorization: Bearer eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJBUElfS0VZX01BTkFHRVIiLCJodHRwOi8vdGF4ZWUuaW8vdXNlcl9pZCI6IjU5MTlmMTlmZTkyMWMwMzY2NjZmMTMxZiIsImh0dHA6Ly90YXhlZS5pby9zY29wZXMiOlsiYXBpIl0sImlhdCI6MTQ5NDg3MjQ3OX0.grP0a9fG_4NdaOaRWk5H-lwG9XOfcgic8eUmhTPF7Tc';
     $curl = curl_init();
     curl_setopt_array($curl, array(
@@ -213,31 +213,32 @@
       }
     }
 
-    // if($_SESSION['income']<=9325){
-    //   $tax_array_number=0;
-    // }elseif ($_SESSION['income']<=37950) {
-    //   $tax_array_number=1;
-    // }elseif ($_SESSION['income']<=91900) {
-    //   $tax_array_number=2;
-    // }elseif ($_SESSION['income']<=191650) {
-    //   $tax_array_number=3;
-    // }elseif ($_SESSION['income']<=416700) {
-    //   $tax_array_number=4;
-    // }elseif ($_SESSION['income']<=418400) {
-    //   $tax_array_number=5;
-    // }elseif ($_SESSION['income']>418400) {
-    //   $tax_array_number=6;
-    // }
-
     $fed_tax=$stuff[$relationship]['income_tax_brackets'][$tax_array_number]['marginal_rate'];
-    
-    // $take_home=$income-($income*$state_tax)-($income*$fed_tax)-($col*12);
+    $city=$_SESSION['user_city'];
+    $cost=db_query("SELECT cost FROM col WHERE city = '{$city}'");
+    $cost = $cost->fetchAssoc();
+    $cost=(float)$cost['cost'];
+    $rent=db_query("SELECT rent FROM col WHERE city = '{$city}'");
+    $rent = $rent->fetchAssoc();
+    $rent=(float)$rent['rent'];
+    $NYcost=db_query("SELECT cost FROM col WHERE city = 'New York'");
+    $NYcost = $NYcost->fetchAssoc();
+    $NYcost=(float)$NYcost['cost'];
+    $NYrent=db_query("SELECT rent FROM col WHERE city = 'New York'");
+    $NYrent = $NYrent->fetchAssoc();
+    $NYrent=(float)$NYrent['rent'];
+    $col=$cost*$NYcost+$rent*$NYrent;
+    $take_home=$_SESSION['income']-($_SESSION['income']*($_SESSION['state_tax_rate']*.01))-($_SESSION['income']*($fed_tax*.01))-($col*12);
 
     echo'<pre>';
-    var_dump($fed_tax);
+    var_dump($_SESSION['income']);
+    var_dump(($_SESSION['income']*($_SESSION['state_tax_rate']*.01)));
+    var_dump(($_SESSION['income']*($fed_tax*.01)));
+    var_dump($col*12);
+    var_dump((int)$take_home);
     echo'</pre>';
 
-    return "bananas";
+    return '<h1>$'.(int)$take_home.'</h1>';
   }
 
   // $city_number = $_SESSION['city'];
