@@ -27,8 +27,8 @@
       'type' => MENU_CALLBACK,
     );
     $items['result'] = array(
-      'page callback' => 'drupal_get_form',
-      'page arguments' => array('income_form'),
+      'title' => 'Your take home',
+      'page callback' => 'results',
       'access callback' => TRUE,
       'type' => MENU_CALLBACK,
     );
@@ -100,7 +100,6 @@
       CURLOPT_URL => 'https://taxee.io/api/v2/state/2017/'.$state,
       CURLOPT_USERAGENT => 'SeanCodes'
     ));
-    // curl_setopt($curl, CURLOPT_HEADER, 1);
     curl_setopt($curl, CURLOPT_HTTPHEADER,array('Content-Type: application/json', $authorization));
     $articles = curl_exec($curl);
     curl_close($curl);
@@ -181,6 +180,66 @@
     $form_state['redirect'] = 'result';
   }
 
+  function results() {
+
+    $relationship='';
+    if($_SESSION['relationship'] == 0){
+      $relationship='single';
+    }else{
+      $relationship='married';
+    }
+
+    $authorization = 'Authorization: Bearer eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJBUElfS0VZX01BTkFHRVIiLCJodHRwOi8vdGF4ZWUuaW8vdXNlcl9pZCI6IjU5MTlmMTlmZTkyMWMwMzY2NjZmMTMxZiIsImh0dHA6Ly90YXhlZS5pby9zY29wZXMiOlsiYXBpIl0sImlhdCI6MTQ5NDg3MjQ3OX0.grP0a9fG_4NdaOaRWk5H-lwG9XOfcgic8eUmhTPF7Tc';
+    $curl = curl_init();
+    curl_setopt_array($curl, array(
+      CURLOPT_RETURNTRANSFER => 1,
+      CURLOPT_URL => 'https://taxee.io/api/v2/federal/2017',
+      CURLOPT_USERAGENT => 'SeanCodes'
+    ));
+    curl_setopt($curl, CURLOPT_HTTPHEADER,array('Content-Type: application/json', $authorization));
+    $articles = curl_exec($curl);
+    curl_close($curl);
+    $stuff = json_decode($articles, true);
+
+    for($i=0;$i<count($stuff[$relationship]['income_tax_brackets']);$i++){
+      if($_SESSION['income']<$stuff[$relationship]['income_tax_brackets'][$i]){
+        if($i===0){
+          $tax_array_number=$i;
+        }elseif($i==(count($stuff[$relationship]['income_tax_brackets'])-1)){
+          $tax_array_number=$i;
+        }else{
+          $tax_array_number=$i-1;
+        }
+      }
+    }
+
+    // if($_SESSION['income']<=9325){
+    //   $tax_array_number=0;
+    // }elseif ($_SESSION['income']<=37950) {
+    //   $tax_array_number=1;
+    // }elseif ($_SESSION['income']<=91900) {
+    //   $tax_array_number=2;
+    // }elseif ($_SESSION['income']<=191650) {
+    //   $tax_array_number=3;
+    // }elseif ($_SESSION['income']<=416700) {
+    //   $tax_array_number=4;
+    // }elseif ($_SESSION['income']<=418400) {
+    //   $tax_array_number=5;
+    // }elseif ($_SESSION['income']>418400) {
+    //   $tax_array_number=6;
+    // }
+
+    $fed_tax=$stuff[$relationship]['income_tax_brackets'][$tax_array_number]['marginal_rate'];
+    
+    // $take_home=$income-($income*$state_tax)-($income*$fed_tax)-($col*12);
+
+    echo'<pre>';
+    var_dump($fed_tax);
+    echo'</pre>';
+
+    return "bananas";
+  }
+
   // $city_number = $_SESSION['city'];
   // $city=$_SESSION['cities'][$city_number];
   // $key=array_search($city,$_SESSION['unsorted_cities']);
@@ -193,7 +252,6 @@
   //   CURLOPT_URL => 'https://taxee.io/api/v2/state/2017/'.$state,
   //   CURLOPT_USERAGENT => 'SeanCodes'
   // ));
-  // // curl_setopt($curl, CURLOPT_HEADER, 1);
   // curl_setopt($curl, CURLOPT_HTTPHEADER,array('Content-Type: application/json', $authorization));
   // $articles = curl_exec($curl);
   // curl_close($curl);
@@ -241,7 +299,6 @@
   //     CURLOPT_URL => 'https://taxee.io/api/v2/state/2017/OR',
   //     CURLOPT_USERAGENT => 'SeanCodes'
   //   ));
-  //   // curl_setopt($curl, CURLOPT_HEADER, 1);
   //   curl_setopt($curl, CURLOPT_HTTPHEADER,array('Content-Type: application/json', $authorization));
   //   $articles = curl_exec($curl);
   //   curl_close($curl);
