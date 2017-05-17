@@ -1,0 +1,5 @@
+name = Take Home
+description = Calculates Take Home amount
+package = Take Home Modules
+core = 7.x
+files[] = Take-Home.module

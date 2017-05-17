@@ -1,0 +1,251 @@
+<?php
+  function Take_Home_menu() {
+    $items['Take_Home'] = array(
+      'title' => "How much do you take home?",
+      'page callback' => 'drupal_get_form',
+      'page arguments' => array('Take_Home_form'),
+      'access callback' => TRUE,
+      'type' => MENU_NORMAL_ITEM,
+    );
+
+    $items['married'] = array(
+      'page callback' => 'drupal_get_form',
+      'page arguments' => array('married_form'),
+      'access callback' => TRUE,
+      'type' => MENU_CALLBACK,
+    );
+    $items['tax_bracket'] = array(
+      'page callback' => 'drupal_get_form',
+      'page arguments' => array('tax_bracket_form'),
+      'access callback' => TRUE,
+      'type' => MENU_CALLBACK,
+    );
+    $items['income'] = array(
+      'page callback' => 'drupal_get_form',
+      'page arguments' => array('income_form'),
+      'access callback' => TRUE,
+      'type' => MENU_CALLBACK,
+    );
+    $items['result'] = array(
+      'page callback' => 'drupal_get_form',
+      'page arguments' => array('income_form'),
+      'access callback' => TRUE,
+      'type' => MENU_CALLBACK,
+    );
+
+    return $items;
+  }
+
+  function Take_Home_form() {
+    $cities=db_query("SELECT * FROM col");
+    $options=array();
+    $states=array();
+    foreach($cities as $value){
+      $options[]=$value->city;
+      $states[]=$value->state;
+    }
+    $_SESSION['unsorted_cities']=$options;
+    $_SESSION['unsorted_states']=$states;
+    sort($options);
+    $_SESSION['cities']=$options;
+
+    $form['cities'] = array(
+      '#title' => "Which city do you live in?",
+      '#type' => 'select',
+      '#options' => $options,
+      '#required' => TRUE,
+    );
+
+    $form['submit'] = array(
+      '#type' => 'submit',
+      '#value' => 'submit',
+    );
+
+    return $form;
+  }
+  function Take_Home_form_submit($form, &$form_state){
+    $city = $form_state['values']['cities'];
+    $_SESSION['city'] = $city;
+    $form_state['redirect'] = 'married';
+  }
+
+  function married_form() {
+    $form['married'] = array(
+      '#title' => "Select your status",
+      '#type' => 'radios',
+      '#options' => array(t('Single'), t('Married')),
+      '#required' => TRUE,
+    );
+
+      $form['submit'] = array(
+        '#type' => 'submit',
+        '#value' => 'submit',
+      );
+
+        return $form;
+  }
+  function married_form_submit($form, &$form_state){
+    $relationship = $form_state['values']['married'];
+    $_SESSION['relationship'] = $relationship;
+
+    $city_number = $_SESSION['city'];
+    $city=$_SESSION['cities'][$city_number];
+    $key=array_search($city,$_SESSION['unsorted_cities']);
+    $state=$_SESSION['unsorted_states'][$key];
+
+    $authorization = 'Authorization: Bearer eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJBUElfS0VZX01BTkFHRVIiLCJodHRwOi8vdGF4ZWUuaW8vdXNlcl9pZCI6IjU5MTlmMTlmZTkyMWMwMzY2NjZmMTMxZiIsImh0dHA6Ly90YXhlZS5pby9zY29wZXMiOlsiYXBpIl0sImlhdCI6MTQ5NDg3MjQ3OX0.grP0a9fG_4NdaOaRWk5H-lwG9XOfcgic8eUmhTPF7Tc';
+    $curl = curl_init();
+    curl_setopt_array($curl, array(
+      CURLOPT_RETURNTRANSFER => 1,
+      CURLOPT_URL => 'https://taxee.io/api/v2/state/2017/'.$state,
+      CURLOPT_USERAGENT => 'SeanCodes'
+    ));
+    // curl_setopt($curl, CURLOPT_HEADER, 1);
+    curl_setopt($curl, CURLOPT_HTTPHEADER,array('Content-Type: application/json', $authorization));
+    $articles = curl_exec($curl);
+    curl_close($curl);
+    $stuff = json_decode($articles, true);
+    $relationship='';
+    if($_SESSION['relationship'] == 0){
+      $relationship='single';
+    }else{
+      $relationship='married';
+    }
+    if (isset($stuff[$relationship]['income_tax_brackets'])) {
+      foreach($stuff[$relationship]['income_tax_brackets']as $value){
+        $brackets[]=$value['bracket'];
+      }
+      $_SESSION['brackets']=$brackets;
+    }
+    if (isset($stuff[$relationship]['income_tax_brackets'])) {
+      foreach($stuff[$relationship]['income_tax_brackets']as $value){
+        $rates[]=$value['marginal_rate'];
+      }
+      $_SESSION['rates']=$rates;
+    }
+
+    if(isset($brackets)){
+      $form_state['redirect'] = 'tax_bracket';
+    }else{
+      $form_state['redirect'] = 'income';
+    }
+  }
+
+  function tax_bracket_form() {
+    $form['tax_bracket'] = array(
+      '#title' => "Select your tax bracket",
+      '#type' => 'radios',
+      '#options' => $_SESSION['brackets'],
+      '#required' => TRUE,
+    );
+
+    $form['submit'] = array(
+      '#type' => 'submit',
+      '#value' => 'submit',
+    );
+
+    return $form;
+  }
+  function tax_bracket_form_submit($form, &$form_state){
+    $tax_bracket = $form_state['values']['tax_bracket'];
+
+    $state_tax_rate=$_SESSION['rates'][$tax_bracket];
+    $_SESSION['state_tax_rate'] = $state_tax_rate;
+    $form_state['redirect'] = 'income';
+  }
+
+  function income_form() {
+    echo'<pre>';
+    var_dump($_SESSION['state_tax_rate']);
+    echo'</pre>';
+    $form['income'] = array(
+      '#title' => "What is your annual income?",
+      '#type' => 'textfield',
+      '#required' => TRUE,
+    );
+
+    $form['submit'] = array(
+      '#type' => 'submit',
+      '#value' => 'submit',
+    );
+
+    return $form;
+  }
+  function income_form_submit($form, &$form_state){
+    $income = $form_state['values']['income'];
+
+    $_SESSION['income'] = $income;
+    $form_state['redirect'] = 'result';
+  }
+
+  // $city_number = $_SESSION['city'];
+  // $city=$_SESSION['cities'][$city_number];
+  // $key=array_search($city,$_SESSION['unsorted_cities']);
+  // $state=$_SESSION['unsorted_states'][$key];
+  //
+  // $authorization = 'Authorization: Bearer eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJBUElfS0VZX01BTkFHRVIiLCJodHRwOi8vdGF4ZWUuaW8vdXNlcl9pZCI6IjU5MTlmMTlmZTkyMWMwMzY2NjZmMTMxZiIsImh0dHA6Ly90YXhlZS5pby9zY29wZXMiOlsiYXBpIl0sImlhdCI6MTQ5NDg3MjQ3OX0.grP0a9fG_4NdaOaRWk5H-lwG9XOfcgic8eUmhTPF7Tc';
+  // $curl = curl_init();
+  // curl_setopt_array($curl, array(
+  //   CURLOPT_RETURNTRANSFER => 1,
+  //   CURLOPT_URL => 'https://taxee.io/api/v2/state/2017/'.$state,
+  //   CURLOPT_USERAGENT => 'SeanCodes'
+  // ));
+  // // curl_setopt($curl, CURLOPT_HEADER, 1);
+  // curl_setopt($curl, CURLOPT_HTTPHEADER,array('Content-Type: application/json', $authorization));
+  // $articles = curl_exec($curl);
+  // curl_close($curl);
+  // $stuff = json_decode($articles, true);
+  // $relationship='';
+  // if($_SESSION['relationship'] == 0){
+  //   $relationship='single';
+  // }else{
+  //   $relationship='married';
+  // }
+  // $brackets=array();
+  // foreach($stuff[$relationship]['income_tax_brackets']as $value){
+  //   $brackets[]=$value['bracket'];
+  // }
+  // $_SESSION['brackets']=$brackets;
+  // $rates=array();
+  // foreach($stuff[$relationship]['income_tax_brackets']as $value){
+  //   $rates[]=$value['marginal_rate'];
+  // }
+  // $_SESSION['rates']=$rates;
+  // echo '<pre>';
+  // var_dump($stuff[$relationship]['income_tax_brackets']);
+  // echo '</pre>';
+  // $options='';
+  // if(isset($brackets) && $brackets != 0){
+  //   $options=$brackets;
+  // }else{
+  //   $options=array(t('N/A'))
+  // }
+
+
+
+  // echo '<pre>';
+  // var_dump($_SESSION['city']);
+  // var_dump($_SESSION['cities']);
+  // var_dump($_SESSION['unsorted_cities']);
+  // var_dump($_SESSION['unsorted_states']);
+  // var_dump($state);
+  // echo '</pre>';
+  // function get_gov(){
+  //   $authorization = 'Authorization: Bearer eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJBUElfS0VZX01BTkFHRVIiLCJodHRwOi8vdGF4ZWUuaW8vdXNlcl9pZCI6IjU5MTlmMTlmZTkyMWMwMzY2NjZmMTMxZiIsImh0dHA6Ly90YXhlZS5pby9zY29wZXMiOlsiYXBpIl0sImlhdCI6MTQ5NDg3MjQ3OX0.grP0a9fG_4NdaOaRWk5H-lwG9XOfcgic8eUmhTPF7Tc';
+  //   $curl = curl_init();
+  //   curl_setopt_array($curl, array(
+  //     CURLOPT_RETURNTRANSFER => 1,
+  //     CURLOPT_URL => 'https://taxee.io/api/v2/state/2017/OR',
+  //     CURLOPT_USERAGENT => 'SeanCodes'
+  //   ));
+  //   // curl_setopt($curl, CURLOPT_HEADER, 1);
+  //   curl_setopt($curl, CURLOPT_HTTPHEADER,array('Content-Type: application/json', $authorization));
+  //   $articles = curl_exec($curl);
+  //   curl_close($curl);
+  //   $stuff = json_decode($articles, true);
+  //   echo '<pre>';
+  //   var_dump($stuff);
+  //   echo '</pre>';
+  //
+  //   return $stuff;
+  // }
